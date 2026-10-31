@@ -1,0 +1,193 @@
+name: Verify analysis and deploy dashboard
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'docs/**'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+concurrency:
+  group: retail-insights-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install pinned dependencies
+        run: |
+          mkdir -p .local
+          python -m pip install -r requirements.txt
+          python -m pip check
+          npm ci
+
+      - name: Run offline Python and JavaScript tests
+        run: |
+          python -m pytest -q --junitxml=.local/pytest.xml
+          npm test
+
+      - name: Cache the official source archive
+        uses: actions/cache@v6
+        with:
+          path: data/raw
+          key: uci-online-retail-${{ runner.os }}-${{ hashFiles('data/source.json') }}
+
+      - name: Download or restore and verify the official source
+        run: |
+          python scripts/download_data.py
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          metadata = json.loads(Path("data/source.json").read_text(encoding="utf-8"))
+          for name, field in (("online-retail.zip", "zip_sha256"), ("Online Retail.xlsx", "xlsx_sha256")):
+              with (Path("data/raw") / name).open("rb") as stream:
+                  actual = hashlib.file_digest(stream, "sha256").hexdigest()
+              if actual != metadata[field]:
+                  raise AssertionError(f"Official source fingerprint mismatch: {name}")
+              print(f"Verified {name}: {actual}")
+          PY
+          git diff --exit-code -- data/source.json
+
+      - name: Rebuild the official analysis in an isolated directory
+        run: python scripts/build.py --output-root .local/ci-rebuild
+
+      - name: Compare rebuilt outputs with the committed snapshots
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path.cwd()
+          rebuilt = root / ".local/ci-rebuild"
+          paths = [Path("dashboard/data/analysis.json"), Path("reports/kpis.json"), Path("reports/FINDINGS.md")]
+          expected_exports = {path.name for path in (root / "reports/exports").glob("*.csv")}
+          actual_exports = {path.name for path in (rebuilt / "reports/exports").glob("*.csv")}
+          if not expected_exports or expected_exports != actual_exports:
+              raise AssertionError(f"Export inventory differs: {expected_exports} != {actual_exports}")
+          paths.extend(Path("reports/exports") / name for name in sorted(expected_exports))
+          checks = []
+          for relative in paths:
+              expected = (root / relative).read_bytes()
+              actual = (rebuilt / relative).read_bytes()
+              if actual != expected:
+                  raise AssertionError(f"Rebuilt snapshot differs byte-for-byte: {relative}")
+              checks.append({"path": relative.as_posix(), "bytes": len(actual), "sha256": hashlib.sha256(actual).hexdigest()})
+          report = {"result": "PASS", "comparison": "byte-for-byte", "files": checks}
+          Path(".local/rebuild-check.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Verify the public snapshot and execute the notebook
+        run: |
+          node scripts/check-data.mjs | tee .local/snapshot-check.json
+          python scripts/execute_notebook.py | tee .local/notebook-check.json
+
+      - name: Install Chromium for real browser checks
+        run: npx --no-install playwright install --with-deps chromium
+
+      - name: Check the running dashboard and capture screenshots
+        id: browser
+        run: |
+          python scripts/serve.py --port 8103 > .local/server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..30}; do
+            if curl --fail --silent http://127.0.0.1:8103/ > /dev/null; then
+              break
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              cat .local/server.log
+              exit 1
+            fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:8103/ > /dev/null
+          npm run test:browser | tee .local/browser-check.log
+
+      - name: Save verification reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: verification-reports
+          path: |
+            .local/pytest.xml
+            .local/rebuild-check.json
+            .local/snapshot-check.json
+            .local/notebook-check.json
+            .local/ui-checks.json
+            .local/browser-check.log
+            .local/server.log
+          include-hidden-files: true
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Save screenshots from the successful browser run
+        if: success() && steps.browser.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: dashboard-screenshots
+          path: docs/screenshots/*.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload the verified dashboard for Pages
+        if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dashboard
+
+  deploy:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy the verified dashboard
+        id: deployment
+        uses: actions/deploy-pages@v4

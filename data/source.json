@@ -1,0 +1,21 @@
+{
+  "name": "Online Retail",
+  "creator": "Daqing Chen",
+  "repository": "UCI Machine Learning Repository",
+  "dataset_url": "https://archive.ics.uci.edu/dataset/352/online+retail",
+  "download_url": "https://archive.ics.uci.edu/static/public/352/online+retail.zip",
+  "doi": "10.24432/C5BW33",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "expected_rows": 541909,
+  "currency": "GBP",
+  "source_period": [
+    "2010-12-01",
+    "2011-12-09"
+  ],
+  "zip_sha256": "f5385cbb54bbebf7196389109c6b0621faab0c304e3702548165e71c84aede8b",
+  "xlsx_sha256": "43465a06f2ccf7c8b5bd2892bc7defb52f97487934fe93b16ae4c3936424676d",
+  "zip_bytes": 23715478,
+  "xlsx_bytes": 23715344,
+  "customer_level_data_published": false
+}

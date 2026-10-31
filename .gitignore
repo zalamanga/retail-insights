@@ -1,0 +1,17 @@
+.local/
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+data/raw/
+*.duckdb
+*.duckdb.wal
+node_modules/
+dist/
+test-results/
+playwright-report/
+powerbi/**/.pbi/
+*.log

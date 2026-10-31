@@ -1,0 +1,6 @@
+segment,customers,monetary,avg_recency_days,avg_frequency
+One-time buyers,1505,626605.9000,156.9734,1.0
+Other repeat buyers,1204,1421534.1200,34.6304,2.8439
+Recent frequent buyers,780,5256581.3700,11.6218,12.5436
+Lapsed repeat buyers,595,649020.4600,175.4202,3.0454
+Other frequent buyers,250,783485.7900,50.656,7.508

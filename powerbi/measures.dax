@@ -1,0 +1,78 @@
+Gross Sales GBP = SUM ( FactMonthlyCountry[gross_sales] )
+
+Credits GBP = SUM ( FactMonthlyCountry[credits] )
+
+Net Sales GBP = SUM ( FactMonthlyCountry[net_sales] )
+
+Orders = SUM ( FactMonthlyCountry[orders] )
+
+Units Sold = SUM ( FactMonthlyCountry[units_sold] )
+
+Units Credited = SUM ( FactMonthlyCountry[units_credited] )
+
+Gross AOV GBP = DIVIDE ( [Gross Sales GBP], [Orders] )
+
+Credit Value Rate = DIVIDE ( [Credits GBP], [Gross Sales GBP] )
+
+Revenue Reconciliation GBP = [Gross Sales GBP] - [Credits GBP] - [Net Sales GBP]
+
+Product Gross Sales GBP = SUM ( FactMonthlyCountryProduct[gross_sales] )
+
+Product Credits GBP = SUM ( FactMonthlyCountryProduct[credits] )
+
+Product Net Sales GBP = SUM ( FactMonthlyCountryProduct[net_sales] )
+
+Product Credit Value Rate = DIVIDE ( [Product Credits GBP], [Product Gross Sales GBP] )
+
+Product Orders Single SKU =
+    IF (
+        HASONEVALUE ( DimProduct[stock_code] ),
+        SUM ( FactMonthlyCountryProduct[orders] ),
+        BLANK ()
+    )
+
+Segment Buyers = SUM ( Segments[customers] )
+
+Segment Gross Spend GBP = SUM ( Segments[monetary] )
+
+Segment Buyer Share =
+    DIVIDE (
+        [Segment Buyers],
+        CALCULATE ( [Segment Buyers], REMOVEFILTERS ( Segments ) )
+    )
+
+Identified Buyers Global =
+    CALCULATE ( SUM ( Segments[customers] ), REMOVEFILTERS ( Segments ) )
+
+Repeat Buyers Global =
+    CALCULATE (
+        SUM ( Segments[customers] ),
+        FILTER ( ALL ( Segments ), Segments[segment] <> "One-time buyers" )
+    )
+
+Repeat Buyer Rate Global = DIVIDE ( [Repeat Buyers Global], [Identified Buyers Global] )
+
+Cohort Size Single Cohort =
+    IF ( HASONEVALUE ( Cohorts[cohort_month] ), MAX ( Cohorts[cohort_size] ), BLANK () )
+
+Cohort Retention =
+    IF (
+        HASONEVALUE ( Cohorts[period_index] ),
+        DIVIDE (
+            SUMX ( FILTER ( Cohorts, Cohorts[observed] = TRUE () ), Cohorts[customers] ),
+            SUMX ( FILTER ( Cohorts, Cohorts[observed] = TRUE () ), Cohorts[cohort_size] )
+        ),
+        BLANK ()
+    )
+
+Rows After Dedup Global =
+    CALCULATE ( SUM ( QualityReasons[rows] ), REMOVEFILTERS ( QualityReasons ) )
+
+Excluded Rows Global =
+    CALCULATE (
+        SUM ( QualityReasons[rows] ),
+        FILTER (
+            ALL ( QualityReasons ),
+            QualityReasons[reason] <> "included_sale" && QualityReasons[reason] <> "included_credit"
+        )
+    )

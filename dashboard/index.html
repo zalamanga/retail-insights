@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="A reproducible analysis of historical UCI Online Retail sales, credit records, repeat purchase and data quality."
+    />
+    <title>Retail Insights | Sales and customer analysis</title>
+    <link rel="icon" href="data:," />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; font-src 'self'; base-uri 'none'; form-action 'none'"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.mjs"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to analysis</a>
+    <header class="site-header">
+      <div class="brand">
+        <a href="#overview"
+          >Retail Insights<span>Sales &amp; customer analysis</span></a
+        >
+      </div>
+      <p class="source-note">
+        UCI Online Retail <span>Historical data · GBP</span>
+      </p>
+      <a
+        class="source-link"
+        href="https://github.com/zalamanga/retail-insights"
+        target="_blank"
+        rel="noopener noreferrer"
+        >Source &amp; methodology</a
+      >
+    </header>
+    <nav class="view-nav" aria-label="Analysis views">
+      <button type="button" data-view="overview" aria-pressed="true">
+        Sales overview
+      </button>
+      <button type="button" data-view="customers" aria-pressed="false">
+        Customer behavior
+      </button>
+      <button type="button" data-view="quality" aria-pressed="false">
+        Data quality
+      </button>
+    </nav>
+    <main id="main" tabindex="-1">
+      <div id="loading" class="load-state" role="status">
+        <h1>Loading the analysis</h1>
+        <p>Reading the recorded data snapshot.</p>
+      </div>
+      <div id="loadError" class="load-state" role="alert" hidden>
+        <h1>The analysis could not be loaded</h1>
+        <p>
+          Check your connection and try again. No sample figures have been
+          substituted.
+        </p>
+        <button id="retry" type="button" class="button primary">
+          Reload data
+        </button>
+      </div>
+      <div id="app" hidden>
+        <section id="overview" class="view" aria-labelledby="overviewHeading">
+          <div class="page-heading">
+            <div>
+              <p class="section-number">01 / Recorded sales</p>
+              <h1 id="overviewHeading">Sales overview</h1>
+              <p>Follow the sales value, with the credits kept visible.</p>
+            </div>
+            <p class="coverage" id="coverage"></p>
+          </div>
+          <form id="filters" class="filters" aria-label="Sales filters">
+            <div class="field">
+              <label for="monthFilter">Analysis window</label
+              ><select id="monthFilter">
+                <option value="complete">Complete months</option>
+                <option value="all">Full recorded period</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="countryFilter">Customer country</label
+              ><select id="countryFilter">
+                <option value="all">All countries</option>
+              </select>
+            </div>
+            <button type="reset" class="button quiet">Reset filters</button>
+            <button id="exportCsv" type="button" class="button">
+              Export summary CSV
+            </button>
+          </form>
+          <p
+            id="selectionStatus"
+            class="selection-status"
+            aria-live="polite"
+            aria-atomic="true"
+          ></p>
+          <div id="emptySelection" class="empty-state" hidden>
+            <h2>No transactions in this selection</h2>
+            <p>Choose another month or country, or reset the filters.</p>
+          </div>
+          <div id="salesResults">
+            <dl class="metrics">
+              <div class="metric metric-lead">
+                <dt>Net recorded sales</dt>
+                <dd id="netSales"></dd>
+                <span>Gross sales less recorded credits</span>
+              </div>
+              <div class="metric">
+                <dt>Gross sales</dt>
+                <dd id="grossSales"></dd>
+                <span>Positive merchandise transactions</span>
+              </div>
+              <div class="metric">
+                <dt>Recorded credits</dt>
+                <dd id="credits"></dd>
+                <span>Absolute value of negative transactions</span>
+              </div>
+              <div class="metric">
+                <dt>Sales invoices</dt>
+                <dd id="orders"></dd>
+                <span>Distinct positive-sale invoice numbers</span>
+              </div>
+            </dl>
+            <div class="chart-layout">
+              <section class="panel trend-panel" aria-labelledby="trendHeading">
+                <div class="panel-heading">
+                  <div>
+                    <h2 id="trendHeading">The monthly sales picture</h2>
+                    <p>Net recorded merchandise sales, in GBP</p>
+                  </div>
+                  <span class="legend"><i></i>Net sales</span>
+                </div>
+                <div id="monthlyChart" class="chart"></div>
+                <p class="chart-note">
+                  An outlined bar marks a partial month. Credits stay in their
+                  recorded posting month.
+                </p>
+                <details>
+                  <summary>View monthly values</summary>
+                  <div
+                    id="monthlyTable"
+                    class="table-scroll"
+                    tabindex="0"
+                    role="region"
+                    aria-label="Monthly values"
+                  ></div>
+                </details>
+              </section>
+              <section
+                class="panel country-panel"
+                aria-labelledby="countryHeading"
+              >
+                <div class="panel-heading">
+                  <div>
+                    <h2 id="countryHeading">Where gross sales sit</h2>
+                    <p>Customer's recorded country, top five</p>
+                  </div>
+                </div>
+                <div id="countryRanking"></div>
+                <p class="chart-note">
+                  Share of gross sales in the current selection. This is not a
+                  shipping analysis.
+                </p>
+              </section>
+            </div>
+            <section
+              class="panel products-panel"
+              aria-labelledby="productHeading"
+            >
+              <div class="panel-heading">
+                <div>
+                  <h2 id="productHeading">Product leaders</h2>
+                  <p>
+                    Top ten merchandise SKUs by net recorded sales in this
+                    selection
+                  </p>
+                </div>
+                <p id="productCount" class="table-meta"></p>
+              </div>
+              <div
+                id="productTable"
+                class="table-scroll"
+                tabindex="0"
+                role="region"
+                aria-label="Product leaders"
+              ></div>
+            </section>
+            <details class="method-note">
+              <summary>What these figures include</summary>
+              <p>
+                Sales include usable merchandise rows even when CustomerID is
+                missing. Exact duplicate source rows, invalid values,
+                non-merchandise codes and inconsistent cancellation signs are
+                excluded under the documented policy. Credits are negative
+                recorded transactions; the data does not prove that each credit
+                matches a particular sale. Net sales is not profit. Internal
+                values use four decimal places; amounts on screen are rounded to
+                two.
+              </p>
+            </details>
+          </div>
+        </section>
+        <section
+          id="customers"
+          class="view"
+          aria-labelledby="customerHeading"
+          hidden
+        >
+          <div class="page-heading">
+            <div>
+              <p class="section-number">02 / Identified buyers</p>
+              <h1 id="customerHeading">Customer behavior</h1>
+              <p>Repeat purchase, recency and observed cohort retention.</p>
+            </div>
+            <p class="coverage">
+              Full recorded period<br />Sales filters do not apply here
+            </p>
+          </div>
+          <p class="scope-note">
+            Only identified customers with a positive merchandise purchase are
+            included. Revenue from anonymous buyers remains in the sales
+            overview. First observed purchase does not prove the customer's true
+            acquisition date.
+          </p>
+          <dl class="metrics customer-metrics">
+            <div class="metric metric-lead">
+              <dt>Observed repeat-buyer rate</dt>
+              <dd id="repeatRate"></dd>
+              <span>Two or more distinct positive-sale invoices</span>
+            </div>
+            <div class="metric">
+              <dt>Identified buyers</dt>
+              <dd id="identifiedBuyers"></dd>
+              <span>Customers in the observed window</span>
+            </div>
+            <div class="metric">
+              <dt>Repeat buyers</dt>
+              <dd id="repeatBuyers"></dd>
+              <span>A subset of identified buyers</span>
+            </div>
+            <div class="metric">
+              <dt>Recency measured at</dt>
+              <dd id="asOf" class="date-value"></dd>
+              <span>The day after the source window ends</span>
+            </div>
+          </dl>
+          <section class="panel" aria-labelledby="segmentHeading">
+            <div class="panel-heading">
+              <div>
+                <h2 id="segmentHeading">Recency and frequency groups</h2>
+                <p>
+                  Fixed R/F rules; monetary value is reported, not used to
+                  assign a group
+                </p>
+              </div>
+            </div>
+            <div
+              id="segmentTable"
+              class="table-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Customer groups"
+            ></div>
+            <p class="chart-note">
+              Frequency counts distinct positive-sale invoices. Monetary value
+              is gross positive purchase spend, not net of credits. These are
+              descriptive groups, not predictions.
+            </p>
+            <details>
+              <summary>Read the grouping rules</summary>
+              <p>
+                Rules run in this order: recency at most 30 days and frequency
+                at least 5; recency over 90 days and frequency at least 2; other
+                buyers with frequency at least 5; other repeat buyers; then
+                one-time buyers. Recency is measured from the fixed cutoff, not
+                today's date.
+              </p>
+            </details>
+          </section>
+          <section class="panel" aria-labelledby="cohortHeading">
+            <div class="panel-heading">
+              <div>
+                <h2 id="cohortHeading">Who purchased again?</h2>
+                <p>
+                  First observed purchase month, followed by monthly
+                  positive-purchase activity
+                </p>
+              </div>
+            </div>
+            <div
+              id="cohortTable"
+              class="table-scroll cohort-scroll"
+              tabindex="0"
+              role="region"
+              aria-label="Observed monthly cohort retention"
+            ></div>
+            <p class="chart-note">
+              Each cell divides active identified buyers by the original cohort
+              size. Month 0 is the first observed purchase month. A dotted edge
+              marks December 2011, observed only through 9 December. Unobserved
+              future months stay blank.
+            </p>
+          </section>
+        </section>
+        <section
+          id="quality"
+          class="view"
+          aria-labelledby="qualityHeading"
+          hidden
+        >
+          <div class="page-heading">
+            <div>
+              <p class="section-number">03 / Source evidence</p>
+              <h1 id="qualityHeading">Data quality</h1>
+              <p>
+                The rows behind the result, and the decisions made along the
+                way.
+              </p>
+            </div>
+            <p class="coverage">
+              Full source audit<br />Before dashboard filters
+            </p>
+          </div>
+          <div class="quality-layout">
+            <section class="panel" aria-labelledby="rowHeading">
+              <div class="panel-heading">
+                <div>
+                  <h2 id="rowHeading">From source to analysis</h2>
+                  <p>
+                    Duplicate removal followed by mutually exclusive exclusions
+                  </p>
+                </div>
+              </div>
+              <div
+                id="qualityTable"
+                class="table-scroll"
+                tabindex="0"
+                role="region"
+                aria-label="Source row reconciliation"
+              ></div>
+            </section>
+            <section
+              class="panel provenance"
+              aria-labelledby="provenanceHeading"
+            >
+              <h2 id="provenanceHeading">
+                A historical source, kept traceable
+              </h2>
+              <dl id="provenance"></dl>
+              <a
+                href="https://archive.ics.uci.edu/dataset/352/online+retail"
+                target="_blank"
+                rel="noopener noreferrer"
+                >Read the UCI dataset record</a
+              >
+              <p>
+                Chen, D. (2015). Online Retail. UCI Machine Learning Repository.
+                CC BY 4.0. DOI: 10.24432/C5BW33.
+              </p>
+            </section>
+          </div>
+          <section class="panel" aria-labelledby="limitationsHeading">
+            <h2 id="limitationsHeading">Limits that matter</h2>
+            <ul class="limitations">
+              <li>
+                The source ends on 9 December 2011. The final month is not
+                comparable with a complete calendar month.
+              </li>
+              <li>
+                Missing customer IDs reduce customer-analysis coverage, but do
+                not automatically remove a sale.
+              </li>
+              <li>
+                Credit notes are not a verified return rate. They may refer to
+                sales outside the observed window.
+              </li>
+              <li>
+                There is no cost, margin, campaign exposure or inventory data
+                here. This analysis cannot calculate profit or causal business
+                impact.
+              </li>
+              <li>
+                The source has no reliable category hierarchy. Product
+                comparisons use the original stock code and a representative
+                description.
+              </li>
+            </ul>
+          </section>
+        </section>
+        <footer class="app-footer">
+          <p>
+            Calculated from a historical UCI snapshot. No live customer system
+            is connected.
+          </p>
+          <a
+            href="https://github.com/zalamanga/retail-insights#readme"
+            target="_blank"
+            rel="noopener noreferrer"
+            >Reproduce this analysis</a
+          >
+        </footer>
+      </div>
+    </main>
+    <noscript
+      ><p class="load-state">
+        Enable JavaScript to use the filters, or read the exported CSV tables in
+        the repository.
+      </p></noscript
+    >
+  </body>
+</html>
