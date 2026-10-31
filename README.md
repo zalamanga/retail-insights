@@ -1,5 +1,7 @@
 # Retail Insights
 
+[Buka dashboard publik](https://zalamanga.github.io/retail-insights/) · [Bukti verifikasi](docs/VERIFICATION.md)
+
 Analisis penjualan dan perilaku pembeli dari UCI Online Retail dengan Python, pandas, dan DuckDB SQL. Hasilnya tersedia sebagai dashboard web, notebook analisis, serta CSV agregat dengan query Power Query M dan measure DAX untuk Power BI.
 
 Proyek menjawab berapa nilai penjualan setelah kredit, bagaimana revenue tersebar menurut waktu/negara/produk, serta bagaimana pembeli teridentifikasi kembali membeli. Definisi metrik, keputusan pembersihan, dan batas interpretasi dijelaskan agar angka bisa diperiksa dari sumbernya.

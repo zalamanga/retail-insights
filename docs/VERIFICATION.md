@@ -1,6 +1,6 @@
 # Bukti verifikasi
 
-Pada 31 Oktober 2026, build data resmi, rekonsiliasi independen, notebook dan pemeriksaan browser lokal sudah lulus. Run CI Linux dan deployment publik belum diklaim sebelum hasil hosted tersedia.
+Pada 31 Oktober 2026, seluruh pemeriksaan lokal dan [run CI Linux 41183631577](https://github.com/zalamanga/retail-insights/actions/runs/41183631577) lulus untuk commit `84f1bcef94547e712e8ed5a7029f42a163925689`. Dashboard berhasil diterbitkan ke [GitHub Pages](https://zalamanga.github.io/retail-insights/). Pembaruan dokumentasi sesudahnya tidak mengubah source analisis atau antarmuka yang diuji.
 
 ## Sumber dan hasil build resmi
 
@@ -41,7 +41,7 @@ Seluruh 169 sel cohort diperiksa. Sebanyak 78 sel masa depan berisi null; ukuran
 | Fixture offline | Gross GBP 31,7038; credits GBP 3,0000; net GBP 28,7038; 7 invoice |
 | [Notebook](../notebooks/01_retail_analysis.ipynb) | 10 sel Python dieksekusi pada ekspor resmi; output tersimpan, tanpa error, dengan penanda akhir PASS |
 | Browser nyata dan screenshot | Microsoft Edge: 15 pemeriksaan alur, 18 layout, empat screenshot; tanpa error halaman/console/HTTP tak terduga |
-| GitHub Actions dan Pages | Belum ada run atau deployment hosted yang dicatat |
+| GitHub Actions dan Pages | Run 41183631577: verifikasi dan deployment success; penerbitan tercatat 08:14:15 UTC |
 
 Tes mencakup deduplikasi delapan kolom, penjualan tanpa ID, harga dan kuantitas tidak valid, kredit tanpa prefiks C, pembulatan harga sebelum perkalian, invoice yang melintasi grain, pesanan produk yang tidak aditif, RFM, serta cohort dengan nol teramati dan sel masa depan kosong. Fixture berisi data sintetis; hasilnya tidak dipakai sebagai temuan bisnis.
 
@@ -55,7 +55,15 @@ Setelah rekonsiliasi snapshot, CI menjalankan pemeriksaan data, mengeksekusi sel
 
 Job deploy baru berjalan setelah verifikasi berhasil pada main di luar pull request. Artefak Pages hanya mengambil folder dashboard. Workbook sumber, cache, database DuckDB, dan direktori pemrosesan lokal tidak menjadi bagian dari situs. Konfigurasi job mengikuti [panduan deployment GitHub Pages](https://github.com/actions/deploy-pages) dan [format artefak Pages](https://github.com/actions/upload-pages-artifact).
 
-Ekspor CSV memakai ORDER BY eksplisit; tes mengacak urutan penyimpanan tabel dan memastikan byte hasil ekspor tetap sama dengan line ending LF. Perbandingan lintas Windows dan Linux belum dinyatakan berhasil sebelum run hosted pertama selesai. Perbedaan nilai hasil rebuild harus diperiksa sebagai kegagalan nyata, bukan dilewati agar deployment tetap berjalan.
+Ekspor CSV memakai ORDER BY eksplisit; tes mengacak urutan penyimpanan tabel dan memastikan byte hasil ekspor tetap sama dengan line ending LF. Run hosted mengonfirmasi delapan output yang dibangun ulang cocok byte-for-byte dengan snapshot yang dikomit: JSON dashboard, JSON KPI, laporan temuan, dan lima CSV. Build Linux tidak sekadar membaca hasil tersimpan; ia memproses ulang workbook resmi dengan fingerprint yang sama.
+
+## Bukti hosted dan halaman publik
+
+Job verifikasi `124485974961` mencatat 31 tes pytest lulus dalam 2,09 detik, sembilan tes JavaScript, sepuluh sel notebook, 15 pemeriksaan fungsi browser, 18 layout, dan empat screenshot. Pemeriksaan dependency `pip check` bersih. Browser CI menggunakan Chromium; pemeriksaan laptop menggunakan Microsoft Edge. Job deployment `124486330810` selesai dengan status success.
+
+Artefak `verification-reports` memiliki ID `13036485596`; artefak screenshot memiliki ID `13035694165`. Seluruh delapan file analisis cocok pada perbandingan Linux. Fingerprint JSON dashboard yang diterbitkan adalah `51cbb400b39515a5240bb9c2cc09785de468c865c79f6c628392d9e399e0d44f` dengan ukuran 13.725.693 byte. Ini fingerprint output, berbeda dari fingerprint workbook sumber di atas.
+
+Probe publik tambahan membandingkan lima aset yang benar-benar diunduh dari Pages dengan blob Git: HTML, dua modul JavaScript, CSS, dan JSON agregat. Semua identik. Modul `.mjs` disajikan dengan MIME JavaScript yang benar. Browser nyata membuka tiga view, memeriksa filter seluruh periode menghasilkan GBP 9.740.220,11, dan memeriksa layout pada lebar 390 px tanpa error JavaScript atau console. Penerbitan tidak bergantung pada server laptop.
 
 ## Batas verifikasi Power BI
 
