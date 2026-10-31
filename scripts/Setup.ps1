@@ -14,11 +14,13 @@ try {
     $retailPython = Join-Path $retailLocal 'venv\Scripts\python.exe'
     if (-not (Test-Path -LiteralPath $retailPython)) {
         $retailSystemPython = (Get-Command python -ErrorAction Stop).Source
-        & $retailSystemPython -c 'import sys; assert sys.version_info >= (3, 13), "Use Python 3.13 or newer"'
+        & $retailSystemPython -c 'import sys; sys.exit(0 if sys.version_info >= (3, 13) else 1)'
         if ($LASTEXITCODE -ne 0) { throw 'Python 3.13 or newer is required for the analysis environment.' }
         & $retailSystemPython -m venv (Join-Path $retailLocal 'venv')
         if ($LASTEXITCODE -ne 0) { throw 'Virtual environment creation failed.' }
     }
+    & $retailPython -c 'import sys; sys.exit(0 if sys.version_info >= (3, 13) else 1)'
+    if ($LASTEXITCODE -ne 0) { throw 'The local analysis environment requires Python 3.13 or newer.' }
     & $retailPython -m pip install --only-binary=:all: --requirement (Join-Path $retailRoot 'requirements.txt')
     if ($LASTEXITCODE -ne 0) { throw 'Dependency installation failed.' }
     & $retailPython -m pip check
